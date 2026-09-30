@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
-import {Package,Plus,Search,ChevronLeft,Trash2,X,Layers3,Calculator,Database,Settings2} from "lucide-react";
+import {Package,Plus,Search,ChevronLeft,Trash2,X,Layers3,Calculator,Database,Settings2,Check} from "lucide-react";
 
 const seed=[
  {id:"i1",name:"جبنة موتزاريلا",base:"جرام",category:"ألبان",packages:[{id:"p1",brand:"",supplier:"",purchaseUnit:"كرتونة",innerCount:20,innerUnit:"كيس",innerQty:1,measure:"كجم",price:0}]},
