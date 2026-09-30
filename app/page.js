@@ -1,0 +1,62 @@
+"use client";
+import {useEffect,useMemo,useState} from "react";
+import {Package,Plus,Search,ChevronLeft,Trash2,X,Layers3,Calculator,Database,Settings2} from "lucide-react";
+
+const seed=[
+ {id:"i1",name:"جبنة موتزاريلا",base:"جرام",category:"ألبان",packages:[{id:"p1",brand:"",supplier:"",purchaseUnit:"كرتونة",innerCount:20,innerUnit:"كيس",innerQty:1,measure:"كجم",price:0}]},
+];
+const uid=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
+const money=n=>new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP",maximumFractionDigits:2}).format(n||0);
+const factors={كجم:1000,جرام:1,لتر:1000,مل:1,قطعة:1};
+
+export default function Page(){
+ const [tab,setTab]=useState("ingredients"),[items,setItems]=useState([]),[recipes,setRecipes]=useState([]),[q,setQ]=useState(""),[modal,setModal]=useState(null);
+ useEffect(()=>{setItems(JSON.parse(localStorage.getItem("em_ingredients")||"null")||seed);setRecipes(JSON.parse(localStorage.getItem("em_recipes")||"[]"));},[]);
+ useEffect(()=>{if(items.length)localStorage.setItem("em_ingredients",JSON.stringify(items))},[items]);
+ useEffect(()=>{localStorage.setItem("em_recipes",JSON.stringify(recipes))},[recipes]);
+ const filtered=useMemo(()=>items.filter(i=>i.name.includes(q)||i.category?.includes(q)),[items,q]);
+ const unitCost=p=>{let total=(+p.innerCount||1)*(+p.innerQty||0)*(factors[p.measure]||1);return total? (+p.price||0)/total:0};
+ const activeCost=i=>unitCost(i.packages?.[0]||{});
+ return <div className="shell">
+   <aside><div className="brand"><div className="mark">M</div><div><b>EL MOHANDES</b><span>MANAGEMENT</span></div></div>
+    <nav>
+      <button className={tab==="ingredients"?"active":""} onClick={()=>setTab("ingredients")}><Package/>الخامات</button>
+      <button className={tab==="recipes"?"active":""} onClick={()=>setTab("recipes")}><Calculator/>تكلفة المنتجات</button>
+      <button disabled><Layers3/>التحضيرات <small>قريبًا</small></button>
+      <button disabled><Database/>المخزون <small>قريبًا</small></button>
+    </nav>
+    <div className="asideFoot"><Settings2/> El Mohandes Management <span>Costing v1</span></div>
+   </aside>
+   <main>
+    {tab==="ingredients"?<Ingredients items={filtered} q={q} setQ={setQ} setModal={setModal} activeCost={activeCost} money={money}/>:<Recipes recipes={recipes} items={items} setModal={setModal} money={money}/>}
+   </main>
+   {modal?.type==="ingredient"&&<IngredientModal initial={modal.item} onClose={()=>setModal(null)} onSave={v=>{setItems(a=>modal.item?a.map(x=>x.id===v.id?v:x):[v,...a]);setModal(null)}}/>}
+   {modal?.type==="recipe"&&<RecipeModal items={items} initial={modal.item} activeCost={activeCost} onClose={()=>setModal(null)} onSave={v=>{setRecipes(a=>modal.item?a.map(x=>x.id===v.id?v:x):[v,...a]);setModal(null)}}/>}
+ </div>
+}
+function Header({eyebrow,title,desc,action}){return <><header><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{desc}</p></div>{action}</header></>}
+function Ingredients({items,q,setQ,setModal,activeCost,money}){return <section><Header eyebrow="COSTING / MASTER DATA" title="الخامات" desc="عرّف الخامة مرة واحدة، ثم أضف لها أي عدد من طرق وأحجام الشراء." action={<button className="primary" onClick={()=>setModal({type:"ingredient"})}><Plus/>خامة جديدة</button>}/>
+ <div className="toolbar"><div className="search"><Search/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="ابحث في الخامات..."/></div><div className="count">{items.length} خامة</div></div>
+ <div className="tableWrap"><table><thead><tr><th>الخامة</th><th>التصنيف</th><th>وحدة التكلفة</th><th>طرق الشراء</th><th>التكلفة الحالية</th><th></th></tr></thead><tbody>{items.map(i=><tr key={i.id}><td><b>{i.name}</b></td><td>{i.category||"—"}</td><td>{i.base}</td><td>{i.packages?.length||0}</td><td className="mono">{money(activeCost(i))} / {i.base}</td><td><button className="icon" onClick={()=>setModal({type:"ingredient",item:i})}><ChevronLeft/></button></td></tr>)}</tbody></table></div>
+ </section>}
+function Recipes({recipes,items,setModal,money}){return <section><Header eyebrow="COSTING / PRODUCTS" title="تكلفة المنتجات" desc="اخلط بين خامات محسوبة وتكاليف مباشرة تقديرية داخل نفس المنتج." action={<button className="primary" onClick={()=>setModal({type:"recipe"})}><Plus/>منتج جديد</button>}/>
+ <div className="cards">{recipes.length?recipes.map(r=>{let cost=r.lines.reduce((s,l)=>s+(+l.cost||0),0);return <article className="product" key={r.id} onClick={()=>setModal({type:"recipe",item:r})}><span>{r.category||"منتج"}</span><h3>{r.name}</h3><div><b>{money(cost)}</b><small>التكلفة الحالية</small></div><div><b>{money(r.price)}</b><small>سعر البيع</small></div><footer>Food cost {r.price?((cost/r.price)*100).toFixed(1):"0"}%</footer></article>}):<div className="empty"><Calculator/><h3>ابدأ بأول منتج</h3><p>أضف مكونات موزونة أو تكلفة مباشرة مثل "تتبيلة — 20 جنيه".</p></div>}</div>
+ </section>}
+function IngredientModal({initial,onClose,onSave}){const [v,setV]=useState(initial?structuredClone(initial):{id:uid(),name:"",category:"",base:"جرام",packages:[]});
+ const addPkg=()=>setV({...v,packages:[...v.packages,{id:uid(),brand:"",supplier:"",purchaseUnit:"كرتونة",innerCount:1,innerUnit:"وحدة",innerQty:1,measure:"كجم",price:""}]});
+ const patchPkg=(id,k,val)=>setV({...v,packages:v.packages.map(p=>p.id===id?{...p,[k]:val}:p)});
+ return <div className="overlay"><div className="modal wide"><div className="modalHead"><div><span className="eyebrow">MASTER DATA</span><h2>{initial?"تعديل الخامة":"إضافة خامة"}</h2></div><button className="icon" onClick={onClose}><X/></button></div>
+ <div className="formGrid"><label>اسم الخامة<input value={v.name} onChange={e=>setV({...v,name:e.target.value})} placeholder="مثال: جبنة موتزاريلا"/></label><label>التصنيف<input value={v.category} onChange={e=>setV({...v,category:e.target.value})} placeholder="مثال: ألبان"/></label><label>وحدة التكلفة الأساسية<select value={v.base} onChange={e=>setV({...v,base:e.target.value})}><option>جرام</option><option>مل</option><option>قطعة</option></select></label></div>
+ <div className="subhead"><div><h3>طرق الشراء</h3><p>نفس الخامة يمكن أن يكون لها براندات وعبوات مختلفة.</p></div><button className="secondary" onClick={addPkg}><Plus/>إضافة طريقة شراء</button></div>
+ <div className="packages">{v.packages.map((p,n)=><div className="pkg" key={p.id}><div className="pkgNo">{n+1}</div><label>البراند<input value={p.brand} onChange={e=>patchPkg(p.id,"brand",e.target.value)}/></label><label>المورد<input value={p.supplier} onChange={e=>patchPkg(p.id,"supplier",e.target.value)}/></label><label>شكل الشراء<input value={p.purchaseUnit} onChange={e=>patchPkg(p.id,"purchaseUnit",e.target.value)} placeholder="كرتونة"/></label><label>عدد الوحدات<input type="number" value={p.innerCount} onChange={e=>patchPkg(p.id,"innerCount",e.target.value)}/></label><label>الوحدة الداخلية<input value={p.innerUnit} onChange={e=>patchPkg(p.id,"innerUnit",e.target.value)} placeholder="كيس"/></label><label>كمية كل وحدة<input type="number" value={p.innerQty} onChange={e=>patchPkg(p.id,"innerQty",e.target.value)}/></label><label>قياسها<select value={p.measure} onChange={e=>patchPkg(p.id,"measure",e.target.value)}><option>كجم</option><option>جرام</option><option>لتر</option><option>مل</option><option>قطعة</option></select></label><label>سعر الشراء<input type="number" value={p.price} onChange={e=>patchPkg(p.id,"price",e.target.value)} placeholder="0.00"/></label><button className="trash" onClick={()=>setV({...v,packages:v.packages.filter(x=>x.id!==p.id)})}><Trash2/></button></div>)}</div>
+ <div className="modalActions"><button className="secondary" onClick={onClose}>إلغاء</button><button className="primary" disabled={!v.name} onClick={()=>onSave(v)}>حفظ الخامة</button></div></div></div>}
+function RecipeModal({items,initial,activeCost,onClose,onSave}){const [v,setV]=useState(initial?structuredClone(initial):{id:uid(),name:"",category:"",price:"",lines:[]});
+ const add=(type)=>setV({...v,lines:[...v.lines,type==="ingredient"?{id:uid(),type,ingredientId:items[0]?.id||"",qty:"",cost:0}:{id:uid(),type,name:"",cost:""}]});
+ const patch=(id,k,val)=>setV(cur=>({...cur,lines:cur.lines.map(l=>{if(l.id!==id)return l;let z={...l,[k]:val};if(z.type==="ingredient"){let ing=items.find(i=>i.id===z.ingredientId);z.cost=(+z.qty||0)*activeCost(ing||{});}return z})}));
+ const total=v.lines.reduce((s,l)=>s+(+l.cost||0),0);
+ return <div className="overlay"><div className="modal wide"><div className="modalHead"><div><span className="eyebrow">PRODUCT COST</span><h2>{initial?"تعديل تكلفة المنتج":"منتج جديد"}</h2></div><button className="icon" onClick={onClose}><X/></button></div>
+ <div className="formGrid"><label>اسم المنتج<input value={v.name} onChange={e=>setV({...v,name:e.target.value})}/></label><label>القسم<input value={v.category} onChange={e=>setV({...v,category:e.target.value})}/></label><label>سعر البيع<input type="number" value={v.price} onChange={e=>setV({...v,price:e.target.value})}/></label></div>
+ <div className="subhead"><div><h3>مكونات التكلفة</h3><p>اختر خامة محسوبة أو أضف مبلغًا مباشرًا للتتبيلات والخضار والتكاليف الصغيرة.</p></div><div className="actions"><button className="secondary" onClick={()=>add("ingredient")}><Plus/>خامة</button><button className="secondary" onClick={()=>add("direct")}><Plus/>تكلفة مباشرة</button></div></div>
+ <div className="lines">{v.lines.map(l=>l.type==="ingredient"?<div className="line" key={l.id}><span className="badge">خامة</span><select value={l.ingredientId} onChange={e=>patch(l.id,"ingredientId",e.target.value)}>{items.map(i=><option value={i.id} key={i.id}>{i.name}</option>)}</select><input type="number" placeholder="الكمية" value={l.qty} onChange={e=>patch(l.id,"qty",e.target.value)}/><b>{money(l.cost)}</b><button className="trash" onClick={()=>setV({...v,lines:v.lines.filter(x=>x.id!==l.id)})}><Trash2/></button></div>:<div className="line" key={l.id}><span className="badge direct">مباشر</span><input placeholder="مثال: تتبيلة" value={l.name} onChange={e=>patch(l.id,"name",e.target.value)}/><input type="number" placeholder="التكلفة بالجنيه" value={l.cost} onChange={e=>patch(l.id,"cost",e.target.value)}/><b>{money(l.cost)}</b><button className="trash" onClick={()=>setV({...v,lines:v.lines.filter(x=>x.id!==l.id)})}><Trash2/></button></div>)}</div>
+ <div className="summary"><span>إجمالي تكلفة المنتج</span><strong>{money(total)}</strong><span>Food Cost</span><strong>{v.price?((total/(+v.price))*100).toFixed(1):0}%</strong></div>
+ <div className="modalActions"><button className="secondary" onClick={onClose}>إلغاء</button><button className="primary" disabled={!v.name} onClick={()=>onSave(v)}>حفظ المنتج</button></div></div></div>}
